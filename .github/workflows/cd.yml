@@ -1,4 +1,88 @@
-name: CD — Build & Release
+name: CD
+
+on:
+  push:
+    branches:
+      - develop
+      - main
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Deployment target
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
+
+jobs:
+  deploy-dev:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop' || github.event_name == 'workflow_dispatch' && github.event.inputs.target == 'dev'
+    runs-on: ubuntu-latest
+    environment: dev
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run tests
+        run: flutter test
+
+      - name: Build dev APK
+        run: >-
+          flutter build apk --release
+          --target lib/main_dev.dart
+          --dart-define-from-file=env/dev.json
+
+      - name: Upload dev artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: flutter-calculator-dev-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+
+  deploy-prod:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' && github.event.inputs.target == 'prod'
+    runs-on: ubuntu-latest
+    environment: prod
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run tests
+        run: flutter test
+
+      - name: Build prod APK
+        run: >-
+          flutter build apk --release
+          --target lib/main_prod.dart
+          --dart-define-from-file=env/prod.json
+
+      - name: Upload prod artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: flutter-calculator-prod-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: errorname: CD — Build & Release
 
 # ─── When does this run? ────────────────────────────────────────────────────
 # • Push to 'develop'  → builds a DEBUG APK (quick test build)
